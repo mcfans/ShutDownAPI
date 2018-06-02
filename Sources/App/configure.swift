@@ -17,7 +17,7 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
                 if OnlineUserManager.default.register(user: info, connection: ws) {
                     inWs.send("Registered")
                 } else {
-                    inWs.send("User already exists")
+                    inWs.send("User already exists Please login in")
                 }
             } else {
                 inWs.send("Can't parse data")
