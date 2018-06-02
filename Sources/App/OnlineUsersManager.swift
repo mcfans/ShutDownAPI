@@ -24,7 +24,7 @@ public class OnlineUserManager {
         if users.insert(user).inserted {
             connections[user] = connection
             return true
-        } else if let oldConnection = connections[user], oldConnection.isClosed {
+        } else if let _ = connections[user] {
             connections[user] = connection
             return true
         } else {
