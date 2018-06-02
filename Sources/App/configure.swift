@@ -17,14 +17,11 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
                 if OnlineUserManager.default.register(user: info, connection: ws) {
                     inWs.send("Registered")
                 } else {
-                    inWs.send("User already exists Please login in")
+                    inWs.send("User already exists")
                 }
             } else {
                 inWs.send("Can't parse data")
             }
-        })
-        ws.onBinary({ (inWs, data) in
-
         })
     }
     services.register(wss, as: WebSocketServer.self)

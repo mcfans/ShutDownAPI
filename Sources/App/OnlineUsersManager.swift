@@ -18,7 +18,7 @@ public class OnlineUserManager {
 
     private var users: Set<ComputerUserInfo> = []
     private var connections: [ComputerUserInfo : WebSocket] = [:]
-    private var tokens: [ComputerUserInfo : Data] = [:]
+    fileprivate var tokens: [ComputerUserInfo : String] = [:]
 
     public func register(user: ComputerUserInfo, connection: WebSocket) -> Bool {
         if users.insert(user).inserted {
@@ -56,7 +56,7 @@ public class OnlineUserManager {
         let payload = ClientPayload(user: user)
         var jwt = JWT(payload: payload)
         if let token = try? jwt.sign(using: signer) {
-            tokens[user] = token
+            tokens[user] = payload.controllerID.value
             return token
         }
         return nil
@@ -66,7 +66,7 @@ public class OnlineUserManager {
         let jwt = try? JWT<ClientPayload>.init(from: payload, verifiedUsing: signer)
         do {
             try jwt?.payload.verify()
-            return jwt?.payload.user
+            return jwt?.payload.sub.value
         } catch {
             return nil
         }
@@ -82,14 +82,35 @@ fileprivate let tokenKey = "mcfans.tech TOKEN"
 fileprivate let signer = JWTSigner.hs256(key: tokenKey.convertToData())
 
 public struct ClientPayload: JWTPayload {
-    var claimer = ExpirationClaim(value: Date().addingTimeInterval(48*3600))
+    var exp = ExpirationClaim(value: Date().addingTimeInterval(48*3600))
+    var sub: SubjectClaim
+    var controllerID: SubjectClaim
+
     public func verify() throws {
-        try claimer.verify()
+        try exp.verify()
+        if !OnlineUserManager.default.isHavingConnection(with: sub.value) {
+            throw TokenVerifyError.lossConnection
+        }
+
+        //        Client have a token but server side didn't registered it.
+        if let value = OnlineUserManager.default.tokens.filter({ $0.key.name == sub.value }).first?.value {
+            if value != controllerID.value {
+                throw TokenVerifyError.haveControllerAlready
+            }
+        } else {
+            throw TokenVerifyError.neverRegistered
+        }
     }
-    var user: String
+
     init(user: ComputerUserInfo) {
-        self.user = user.name
+        sub = SubjectClaim(value: user.name)
+        controllerID = SubjectClaim(value: UUID().uuidString)
     }
 }
 
+enum TokenVerifyError: Error {
+    case lossConnection
+    case haveControllerAlready
+    case neverRegistered
+}
 
